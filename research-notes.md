@@ -11,3 +11,5 @@ So the two directions are not symmetric, and that's the whole resolution:
 - Return (feedback): henry fingertip force → one bit (contact / no contact) → will brake locks at current position. No angle translation at all.
 
 Start instead of doing a full build, do it so that you can test that the haptics work with using only one finger on the sensorised glove.
+
+Henry design: https://www.thingiverse.com/thing:2269115
