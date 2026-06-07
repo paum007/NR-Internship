@@ -13,3 +13,7 @@ So the two directions are not symmetric, and that's the whole resolution:
 Start instead of doing a full build, do it so that you can test that the haptics work with using only one finger on the sensorised glove.
 
 Henry design: https://www.thingiverse.com/thing:2269115
+
+Henry's design might have to be tweaked though to include wrist rotation and IMU implementation. On top of this, it will need space to include the force sensors. I'm sure that with long nough wires it will be okay. The ESP can also be attached on the outside of the forearm. Use maybe planetary gear for the wrist rotation? 
+
+TODO: Research gears
