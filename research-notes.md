@@ -12,8 +12,9 @@ So the two directions are not symmetric, and that's the whole resolution:
 
 Start instead of doing a full build, do it so that you can test that the haptics work with using only one finger on the sensorised glove.
 
-Henry design: https://www.thingiverse.com/thing:2269115
+NEW DESIGN OF THE HAND: https://arxiv.org/pdf/2509.03690
 
-Henry's design might have to be tweaked though to include wrist rotation and IMU implementation. On top of this, it will need space to include the force sensors. I'm sure that with long nough wires it will be okay. The ESP can also be attached on the outside of the forearm. Use maybe planetary gear for the wrist rotation? 
+I think it would be good to make the CAD for the servos yourself since it would be quite hard to make it without.
 
-TODO: Research gears
+USE CHUNKING FOR THE ESP_NOW. Look at this website to do so: [esp_now chunking](https://www.digikey.sg/zh/maker/tutorials/2024/how-to-transmit-messages-to-unlimited-receivers-in-esp-now)
+
