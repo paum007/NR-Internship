@@ -67,7 +67,7 @@ void loop(){
         esp_now_send(receiverMAC, (uint8_t *)&packet, sizeof(packet));
     }
 
-    // Serial.printf("Pot raw1: %4d smoothed: %4d\n", raw_pot1, packet.potValue1);
-    // Serial.printf("Pot raw2: %4d smoothed: %4d\n", raw_pot2, packet.potValue2);
+    Serial.printf("Pot raw1: %4d smoothed: %4d\n", raw_pot1, packet.potValue1);
+    Serial.printf("Pot raw2: %4d smoothed: %4d\n", raw_pot2, packet.potValue2);
     delay(20);
 }
