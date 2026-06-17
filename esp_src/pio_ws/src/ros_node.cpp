@@ -31,18 +31,26 @@ void error_loop(){
 
 void subscription_callback(const void *msgin){
     const geometry_msgs__msg__Twist *m = (const geometry_msgs__msg__Twist *)msgin;
-    (void)m;
+    Serial.print("linear.x: ");
+    Serial.print(m->linear.x);
+    Serial.print("linear.y: ");
+    Serial.println(m->linear.y);
 
     // TODO: read the fields you care about, e.g. m->linear.x, m->angular.z
     // TODO: act on tehm (and later: ESP_NOW send to ESP-Will goes here)   
 }
 
 void setup(){
+
+Serial.begin(115200);
 // --- WiFi transport to the agent ---
 IPAddress agent_ip(172, 27, 92, 143);
 size_t agent_port = 8888;
 
-set_microros_wifi_transports("YOUR_SSID", "YOUR_PASSWORD", agent_ip, agent_port);
+char ssid[] = "pauma_hotspot";
+char psk[]= "23esu08arsom0";
+
+set_microros_wifi_transports(ssid, psk, agent_ip, agent_port);
 dealy(2000);
 
 allocator = rcl_get_default_allocator();
@@ -53,7 +61,7 @@ RCCHECK(rclc_subscription_init_default(
     &subscriber,
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
-    "cmd_vel"
+    "/turtle1/cmd_vel"
 ));
 
 RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
