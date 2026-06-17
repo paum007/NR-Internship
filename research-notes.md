@@ -16,5 +16,10 @@ NEW DESIGN OF THE HAND: https://arxiv.org/pdf/2509.03690
 
 I think it would be good to make the CAD for the servos yourself since it would be quite hard to make it without.
 
-USE CHUNKING FOR THE ESP_NOW. Look at this website to do so: [esp_now chunking](https://www.digikey.sg/zh/maker/tutorials/2024/how-to-transmit-messages-to-unlimited-receivers-in-esp-now)
+USE CHUNKING FOR THE ESP_NOW.
+[esp_now chunking](https://www.digikey.sg/zh/maker/tutorials/2024/how-to-transmit-messages-to-unlimited-receivers-in-esp-now)
 
+[MLX90393 DATASHEET](https://uk.store.bambulab.com/products/tpu-for-ams?id=532448685015678999)
+[MLX90393 VISUALISATION](https://github.com/notvenky/eFlesh/tree/main/visualizer)
+
+![This is what I found on the 3D printer settings for the TPU](image.png)
