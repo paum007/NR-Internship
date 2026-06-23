@@ -24,4 +24,3 @@ USE CHUNKING FOR THE ESP_NOW.
 
 ![This is what I found on the 3D printer settings for the TPU](image.png)
 
-
