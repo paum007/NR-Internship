@@ -37,7 +37,7 @@ void subscription_callback(const void *msgin){
     Serial.println(m->linear.y);
 
     // TODO: read the fields you care about, e.g. m->linear.x, m->angular.z
-    // TODO: act on tehm (and later: ESP_NOW send to ESP-Will goes here)   
+    // TODO: act on them (and later: ESP_NOW send to ESP-Will goes here)   
 }
 
 void setup(){

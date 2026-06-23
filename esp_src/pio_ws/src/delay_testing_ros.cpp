@@ -12,14 +12,10 @@
 #include <rcl/error_handling.h>
 #include <std_msgs/msg/string.h>
 #include <micro_ros_platformio.h>
-#include <rwm_microros/rwm_microros.h>
+#include <rmw_microros/rmw_microros.h>
 
 #define NODE_NAME "esp_henry"
 #define SUBSCRIBER_TOPIC "chatter"
-
-// char output (cout) ----
-#include <iostream>
-using namespace std;
 
 // Enterprise WiFi credentials ----
 #define WIFI_SSID "Modern_Networks"
@@ -48,11 +44,15 @@ size_t agent_port = 8888;
 #define BUFFER_SIZE 200
 char incoming_buffer[BUFFER_SIZE];
 
-int64_t cout;
+// callback values ----
+int64_t sent_ms;
+int64_t now_ms;
+int64_t delay_ms;
+
 
 void error_loop(){
     while(1){
-        Serial.printf("[ERROR] Nothing is being received");
+        Serial.println("[ERROR] Nothing is being received");
         digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
         delay(100);
     }
@@ -62,32 +62,22 @@ void subscription_callback(const void *msgin){
     const std_msgs__msg__String *msg = (const std_msgs__msg__String *)msgin;
     // all the timing logic here
 
-    Serial.print("[ROS] Received: ");
+    // Serial.print("[ROS] Received: ");
     Serial.println(msg->data.data);
 
-    try {
-        int64_t sent_ms = atoll(m->data.data); // the message payload IS the send-time in epoch miliseconds, as text
-        if (!sent_ms.empty()){
-            int64_t now_ms = rmw_uros_epoch_millis(); // current time, in the AGENT's clock (valid because we synched)
-            int64_t delay_ms = now_ms - sent_ms;
-            
-            cout << delay_ms;
+        if (msg->data.data != NULL){
+            sent_ms = atoll(msg->data.data); // the message payload IS the send-time in epoch miliseconds, as text
+            now_ms = rmw_uros_epoch_millis(); // current time, in the AGENT's clock (valid because we synched)
+            delay_ms = now_ms - sent_ms;
             
             Serial.print("One-way delay: ");
             Serial.print((long)delay_ms);
             Serial.println(" ms");
-
         }
 
         else{
-            throw(sent_ms);
+            Serial.println("No data received");
         }
-        
-    }
-    catch (int64_t myNum) {
-        cout << "There has been no data sent";
-        cout << "Age is: " << myNum;
-    } 
 
 }
 
@@ -121,6 +111,7 @@ void setup(){
     Serial.begin(115200);
     pinMode(LED_BUILTIN, OUTPUT);
 
+
     connectEnterpriseWiFi(); // join enterprise wifi
 
     set_microros_wifi_transports("", "", agent_ip, agent_port);
@@ -129,6 +120,14 @@ void setup(){
     allocator = rcl_get_default_allocator();
     RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
     RCCHECK(rclc_node_init_default(&node, NODE_NAME, "", &support));
+
+    // Synching the clock to the agent
+    while (!rmw_uros_epoch_synchronized()){
+        RCSOFTCHECK(rmw_uros_sync_session(1000));
+        delay(500);
+    }
+
+    Serial.println("Clocks synched");
 
     RCCHECK(rclc_subscription_init_default(
         &subscriber,
@@ -145,7 +144,7 @@ void setup(){
         &executor,
         &subscriber,
         &incoming_msg,
-        &string_callback,
+        &subscription_callback,
         ON_NEW_DATA));
 
     Serial.println("[INFO] micro-ROS node ready.");    
