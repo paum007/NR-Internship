@@ -1,0 +1,188 @@
+import cv2
+import time
+import rclpy
+import numpy as np
+import mediapipe as mp
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+from mediapipe import solutions
+from mediapipe.framework.formats import landmark_pb2
+
+
+class LandmarkDetector(Node):
+    def __init__(self):
+        super().__init__('landmark_angles')
+
+        ### SUBS AND PUBS ###
+        self.subscription = self.create_subscription(
+            Image,
+            'image_raw',
+            self.img_callback,
+            10)
+        
+        self.publisher = self.create_publisher(
+            int,
+            'angles',
+            10)
+
+        self.get_logger().info("[INIT] Initialising mediapipe node")
+        self.bridge = CvBridge()
+
+
+
+
+        ### MEDIAPIPE OPTIONS ###
+        self.BaseOptions = mp.tasks.BaseOptions
+        self.HandLandmarker = mp.tasks.vision.HandLandmarker
+        self.HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
+        self.VisionRunningMode = mp.tasks.vision.RunningMode
+        self.HandLandmarkerResult = mp.tasks.vision.HandLandmarkerResult
+
+        self.model_path = 'hand_landmakrks.task'
+
+        self.right_gesture = []
+        self.hand_landmarks_right = []
+        self.hand = []
+        self.mp_drawing = mp.solutions.drawing_utils
+        self.mp_hands = mp.solutions.hands
+
+        self.options = self.HandLandmarkerOptions(
+            num_hands = 2,
+            min_hand_detection_confidence=0.5, # The lower this number, the slower mediapipe will be.
+            min_tracking_confidence=0.3, # The lower this number, the slower mediapipe will be.
+            base_options=self.BaseOptions(model_asset_path=self.model_path), # Selecting the model
+            running_mode=self.VisionRunningMode.LIVE_STREAM, # Configure the gesture recognizer for live stream mode.
+            result_callback=self.gesture_result) # When a result is ready, MediaPipe will automatically call print_result.
+        
+        self.frame_count = 0
+
+
+    def img_callback(self, msg):
+        current_frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgra8') # converting the image from a ROS2 format to an array format that cv2 can process it
+        
+
+
+    
+    # Create a gesture recognizer instance with the live stream mode
+    def gesture_result(self, result, output_image: mp.Image, timestamp_ms: int):
+
+        # checking if the gestures is empty
+        self.right_gesture = []
+        self.hand_landmarks_right = []
+        self.hand = []
+        if result.gestures:
+            for i in range(len(result.gestures)):
+                gesture = result.gestures[i][0].category_name
+                self.hand = result.handedness[i][0].category_name
+                landmark_list = landmark_pb2.NormalizedLandmarkList()
+                # might be a bit confusing but this makes sense since the screen would be mirrored so this appears nicely on the screen
+                if self.hand == "Left":
+                    self.left_gesture = gesture
+                    self.right_text = f"Right hand: {self.left_gesture}"
+                    for lm in result.hand_landmarks[i]:
+                        landmark_list.landmark.add(x=lm.x, y=lm.y, z=lm.z)
+                    self.hand_landmarks_right.append(landmark_list)
+                else:
+                    self.right_gesture = gesture
+                    self.left_text = f"Left hand: {self.right_gesture}"
+
+                    for lm in result.hand_landmarks[i]:
+                        landmark_list.landmark.add(x=lm.x, y=lm.y, z=lm.z)
+                    self.hand_landmarks_left.append(landmark_list)
+
+            # print('gesture recognition result: {}'.format(result))
+
+        # if no gesture is being received
+        else:
+            self.text = "Waiting for gesture"
+
+    
+    def gesture_recognition(self, camera):
+
+        with self.GestureRecognizer.create_from_options(self.options) as recognizer:
+        # The detector is initialized. Use it here.
+            while True:
+                start = time.time()
+                camera.frames()
+                feed = camera.frames()
+                if feed is None:
+                    break
+
+                frame, timestamp_ms = feed
+                
+                # change the image into the correct format for MediaPipe to read it
+                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame)
+
+                # self.frame_count += 1
+
+                # if self.frame_count %2 == 0:
+                #     recognizer.recognize_async(mp_image, timestamp_ms) # get the result
+
+                try:
+                    # time.sleep(0.02)
+                    recognizer.recognize_async(mp_image, timestamp_ms) # get the result
+
+                except Exception as e:
+                    print(f"Exception: {e}")
+
+
+                # Putting the text over the image
+                colour = (0, 255, 0) if self.text!="Waiting for gesture" else (0, 0, 255)
+
+                if self.text == "Waiting for gesture":
+                    cv2.putText(frame, self.text, (int(camera.width//2)-130, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, colour, 2) 
+
+                cv2.putText(frame, self.left_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, colour, 2)
+                cv2.putText(frame, self.right_text, (int(camera.width-300), 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, colour, 2)
+                cv2.putText(frame, f"fps:{str(camera.live_fps)}", (10, (int(camera.height)-10)), cv2.FONT_HERSHEY_SIMPLEX, 0.8, [255,255,255], 2)
+
+                
+                if self.hand_landmarks_right:
+                    self.canvas.draw(self.left_gesture, self.right_gesture, self.hand_landmarks_right[0].landmark[8])
+                    if self.canvas.mode == "RANDOMISING COLOUR":
+                        cv2.putText(frame, self.canvas.mode, (int(camera.width//2-100), 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, self.canvas.colour, 2)
+
+                    elif self.canvas.mode == "DRAWING":
+                        cv2.putText(frame, self.canvas.mode, (int(camera.width//2-50), 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, self.canvas.colour, 2)
+
+                    elif self.canvas.mode == "PEN LIFTED":
+                        cv2.putText(frame, self.canvas.mode, (int(camera.width//2-50), 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, self.canvas.colour, 2)
+                    
+                    elif self.canvas.mode == "ERASING":
+                        cv2.putText(frame, self.canvas.mode, (int(camera.width//2-50), 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
+                    
+                    else:
+                        cv2.putText(frame, self.canvas.mode, (int(camera.width//2), 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, colour, 2)
+
+                blended = self.canvas.blend(frame)
+
+                for hand in self.hand_landmarks_left:
+                    solutions.drawing_utils.draw_landmarks(
+                        blended,
+                        hand,
+                        solutions.hands.HAND_CONNECTIONS,
+                        solutions.drawing_styles.get_default_hand_landmarks_style(),
+                        solutions.drawing_styles.get_default_hand_connections_style())
+
+                for hand in self.hand_landmarks_right:
+                    solutions.drawing_utils.draw_landmarks(
+                        blended,
+                        hand,
+                        solutions.hands.HAND_CONNECTIONS,
+                        solutions.drawing_styles.get_default_hand_landmarks_style(),
+                        solutions.drawing_styles.get_default_hand_connections_style())
+
+                print(time.time() - start)
+                cv2.imshow("camera", blended)
+
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'):
+                    break
+                elif key == ord('c'):
+                    self.canvas.drawing_surface = np.zeros((round(camera.height), round(camera.width), 3), dtype=np.uint8)
+                    self.canvas.colour = (255, 255, 255)
+
+        camera.close()
+
+            
