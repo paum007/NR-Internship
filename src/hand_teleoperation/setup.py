@@ -26,7 +26,7 @@ setup(
         'console_scripts': [
             'delay_pub = hand_teleoperation.delay_pub:main',
             #'delay_capture = hand_teleoperation.delay_capture:main',
-            #'hand_landmarker = hand_teleoperation.hand_landmarker:main',
+            'mediapipe_node = hand_teleoperation.mediapipe_node:main',
         ],
     },
 )
