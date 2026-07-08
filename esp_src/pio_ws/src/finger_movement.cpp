@@ -12,6 +12,7 @@
 #include <rcl/rcl.h>
 #include <rclc/rclc.h>
 #include <rclc/executor.h>
+#include <rmw/qos_profiles.h>
 #include <rcl/error_handling.h>
 #include <micro_ros_platformio.h>
 #include <rmw_microros/rmw_microros.h>
@@ -33,6 +34,12 @@
 Servo servoIndexMCP;
 Servo servoIndexPIP;
 Servo servoIndexDIP;
+
+int targetMCP = 0, targetPIP = 0, targetDIP = 0;   // where ROS wants them
+int currentMCP = 0, currentPIP = 0, currentDIP = 0; // where they are now
+
+const int STEP = 2; // degrees moved per update  (smaller = smoother)
+const int STEP_DELAY = 0; // ms between updates (larger  = slower)
 
 // MicroROS Objects ----
 
@@ -62,11 +69,21 @@ void error_loop(){
 void subscription_callback(const void *msgin){
     const hand_teleoperation_interfaces__msg__HandAngles *msg = (const hand_teleoperation_interfaces__msg__HandAngles *)msgin;
 
-    Serial.print("[ROS] Received: "); Serial.println(msg->index_mcp);
-    servoIndexMCP.write((int)msg->index_mcp);
-    servoIndexPIP.write((int)msg->index_pip);
-    servoIndexDIP.write((int)msg->index_dip);
+    Serial.printf("[ROS] Received  MCP: %.1f  PIP: %.1f  DIP: %.1f\n",
+                  msg->index_mcp, msg->index_pip, msg->index_dip);
+    targetMCP = (int)msg->index_mcp;
+    targetPIP = (int)msg->index_pip;
+    targetDIP = (int)msg->index_dip;
+}
 
+void stepServo(Servo &s, int &current, int target, int step){
+    if (current < target) {
+        current = min(current + step, target);
+    }
+    else if (current > target) {
+        current = max(current - step, target);
+    }
+    s.write(current);   // always push the current position to the servo
 }
 
 
@@ -105,10 +122,24 @@ void setup(){
     set_microros_wifi_transports("", "", agent_ip, agent_port);
     delay(200);
 
+    // QoS Profile ----
+    rmw_qos_profile_t qos = rmw_qos_profile_default;
+
+    qos.reliability = RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT;
+    qos.durability = RMW_QOS_POLICY_DURABILITY_VOLATILE;
+    qos.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
+    qos.depth = 1;
+
     // attaching the servos
     servoIndexMCP.attach(INDEX_MCP_PIN);
     servoIndexPIP.attach(INDEX_PIP_PIN);
     servoIndexDIP.attach(INDEX_DIP_PIN);
+
+    // reset to 0 once on startup
+    servoIndexMCP.write(0);
+    servoIndexPIP.write(0);
+    servoIndexDIP.write(0);
+    delay(500);
 
     allocator = rcl_get_default_allocator();
     RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
@@ -122,10 +153,10 @@ void setup(){
 
     Serial.println("Clocks synched");
 
-    RCCHECK(rclc_subscription_init_default(
+    RCCHECK(rclc_subscription_init(
         &subscriber,
         &node,
-        ROSIDL_GET_MSG_TYPE_SUPPORT(hand_teleoperation_interfaces, msg, HandAngles), SUBSCRIBER_TOPIC));
+        ROSIDL_GET_MSG_TYPE_SUPPORT(hand_teleoperation_interfaces, msg, HandAngles), SUBSCRIBER_TOPIC, &qos));
 
     static char handedness_buf[20];
     incoming_msg.handedness.data = handedness_buf;
@@ -150,6 +181,11 @@ void setup(){
 }
 
 void loop(){
-    RCSOFTCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100)));
-    delay(10);
+    RCSOFTCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10)));
+
+    stepServo(servoIndexMCP, currentMCP, targetMCP, STEP);
+    stepServo(servoIndexPIP, currentPIP, targetPIP, STEP);
+    stepServo(servoIndexDIP, currentDIP, targetDIP, STEP);
+
+    delay(STEP_DELAY);
 }
