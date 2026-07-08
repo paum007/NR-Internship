@@ -4,6 +4,7 @@ import time
 import rclpy
 import numpy as np
 import mediapipe as mp
+from rclpy.qos import *
 from rclpy.node import Node
 from cv_bridge import CvBridge
 from mediapipe import solutions
@@ -17,6 +18,9 @@ The "proper" long-term option is a custom message
 which makes the subscriber code far more readable than indexing into 
 data[3]. But Float64MultiArray is the fast way to get moving, and you can upgrade later.
 '''
+
+# TODO: Look at this chat and follow the debugging processes: https://claude.ai/chat/7268c26f-f078-432f-9d5a-69b04086c3c6
+
 
 FINGER_JOINTS = {
     # index finger
@@ -40,9 +44,35 @@ FINGER_JOINTS = {
     "pinky_dip": (18, 19, 20),
 
     # thumb
-    "thumb_mcp": (1, 2, 3),    # CMC, MCP, IP
-    "thumb_ip": (2, 3, 4),    # MCP, IP, TIP
+    "thumb_mcp": (1, 2, 3),
+    "thumb_ip": (2, 3, 4), 
 }
+
+ANGLE_OFFSETS = {
+    "index_mcp": -10,
+    "index_pip": +10
+}
+
+qos_profile = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=1
+)
+
+"""
+THIS IS THE CURRENT QoS PROFILE OF THE CAMERA TOPIC:
+
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): UNKNOWN
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+
+"""
 
 class LandmarkDetector(Node):
     def __init__(self):
@@ -53,19 +83,14 @@ class LandmarkDetector(Node):
             Image,
             '/camera/image_raw',
             self.img_callback,
-            10)
+            qos_profile)
         
         self.publisher = self.create_publisher(
             HandAngles,
             'hand_angles',
-            10)
+            qos_profile)
 
-        # debug image -> view in rqt_image_view (no cv2 window: it freezes the executor thread)
-        self.debug_pub = self.create_publisher(
-            Image,
-            'hand_debug',
-            10)
-
+        self.create_timer(1/30.0, self.publish_latest)
         self.get_logger().info("[INIT] Initialising mediapipe node")
         self.bridge = CvBridge()
 
@@ -97,8 +122,10 @@ class LandmarkDetector(Node):
         self.landmarker = self.HandLandmarker.create_from_options(self.options)
 
         self.frame_count = 0
-        self.debug_frame = None    # draw_landmarks() output goes here; img_callback shows it
-
+        self.hwl = None   # latest HandLandmarkerResult; set by landmark_result()
+        self.latest_msg = None
+        self.threshold = 2
+        self.prev_angles = {}
 
     def img_callback(self, msg):
 
@@ -106,34 +133,33 @@ class LandmarkDetector(Node):
             self.current_frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='rgb8') # converting the image from a ROS2 format to an array format that cv2 can process it
             self.mp_image = mp.Image(image_format = mp.ImageFormat.SRGB, data=self.current_frame) # change the image into the correct format for MediaPipe to read it
 
-            # LIVE_STREAM needs STRICTLY increasing timestamps. Camera header stamps can
-            # repeat/jump and silently stall mediapipe -> use a monotonic frame counter.
             self.frame_count += 1
+            self.get_logger().info(f"Frame count: {self.frame_count}", throttle_duration_sec = 1.0)
 
+            # TODO: Maybe processing the frames first and then displaying the old ones or vice versa
             self.landmarker.detect_async(self.mp_image, self.frame_count)
 
-            # publish the annotated frame instead of a cv2 window (a cv2 window on the
-            # executor thread freezes -> "not responding" -> takes publishing down with it)
-            if self.debug_frame is not None:
-                self.debug_pub.publish(self.bridge.cv2_to_imgmsg(self.debug_frame, encoding='rgb8'))
-        except Exception as e:
-            self.get_logger().info(f"[ERROR] {e}")
+            cv2.imshow("landmarks", cv2.cvtColor(self.draw_landmarks(), cv2.COLOR_RGB2BGR)) # TODO: Maybe the fact that you're showing it adds a lot of delay.
+            cv2.waitKey(1)
 
+        except Exception as e:
+            self.get_logger().error(f"{e}")
 
     # Create a gesture recognizer instance with the live stream mode
     def landmark_result(self, result, mp_image, timestamp_ms):
-        # wrap the whole callback: an uncaught exception here (mediapipe's thread)
-        # silently stops result delivery -> publishing halts. Log it instead.
         try:
-            # --- angles ---
+            # angles
+            # self.get_logger().info("is this working", throttle_duration_sec = 1.0)
             hwl = result.hand_world_landmarks
             if not hwl:
                 return
+            
+            # self.get_logger().info(f"Checking for data: {len(hwl)}", throttle_duration_sec = 1.0) # making sure hwl is outputting data
 
             self.hwl = result   # draw_landmarks() reads self.hwl.hand_landmarks / .handedness
 
-            for i in range(len(hwl)):          # one per hand
-                landmarks = hwl[i]             # the 21 world landmarks for this hand
+            for i in range(len(hwl)): # one per hand
+                landmarks = hwl[i] # the 21 world landmarks for this hand
 
                 angles = {}
                 for name, (a_idx, b_idx, c_idx) in FINGER_JOINTS.items():   # one per joint
@@ -145,15 +171,25 @@ class LandmarkDetector(Node):
                 msg = HandAngles()
                 msg.header.stamp = self.get_clock().now().to_msg()
                 msg.handedness = result.handedness[i][0].category_name
+
+                # checking if the value is within a certain threshold to reduce jitter
                 for name, value in angles.items():
-                    setattr(msg, name, value)
-                self.publisher.publish(msg)
-
-            # draw once per result (uses self.hwl + self.current_frame); img_callback shows it
-            self.debug_frame = self.draw_landmarks()
-
+                    prev = self.prev_angles.get(name)
+                    if prev is not None and abs(value-prev) < self.threshold:
+                        value = prev
+                    value += ANGLE_OFFSETS.get(name, 0)     # .get(name, 0) → 0 if joint isn't in the table
+                    setattr(msg, name, value) # setattr: allows you to set the value of an attribute of an object dynamically at runtime using the attribute's name as a string
+                self.latest_msg = msg # store instead of publish
+            
         except Exception as e:
-            self.get_logger().error(f"[landmark_result] {type(e).__name__}: {e}")
+            self.get_logger().error(f"{e}")
+
+    def publish_latest(self):
+
+        if self.latest_msg is None:    # nothing detected yet
+            return
+        self.latest_msg.header.stamp = self.get_clock().now().to_msg()  # optional: fresh timestamp
+        self.publisher.publish(self.latest_msg)
 
 
     def get_joint_angles(self, a, b, c):
@@ -175,7 +211,7 @@ class LandmarkDetector(Node):
         #convert to degrees
         angle_deg = np.degrees(angle_rad)
         
-        return angle_deg
+        return round(angle_deg, 0) # Add or take away degrees from here when calibrating
 
     def draw_landmarks(self):
         MARGIN = 10
@@ -183,23 +219,29 @@ class LandmarkDetector(Node):
         FONT_THICKNESS = 1
         HANDEDNESS_TEXT_COLOUR = (88, 205, 54)
 
+        annotated_img = np.copy(self.current_frame)
+
+        # The detection callback runs asynchronously, so self.hwl may not be
+        # set yet (e.g. first frames) or may hold no hands. Return the raw frame.
+        if self.hwl is None:
+            return annotated_img
+
         hand_landmarks_list = self.hwl.hand_landmarks
         handedness_list = self.hwl.handedness
-        annotated_img = np.copy(self.current_frame)
 
 
         for i in range(len(hand_landmarks_list)):
             hand_landmarks = hand_landmarks_list[i]
             handedness = handedness_list[i]
 
-            # fix: convert raw Tasks-API landmarks -> NormalizedLandmarkList proto
+            # convert raw Tasks-API landmarks -> NormalizedLandmarkList proto
             proto = landmark_pb2.NormalizedLandmarkList()
             proto.landmark.extend([
                 landmark_pb2.NormalizedLandmark(x=lm.x, y=lm.y, z=lm.z)
                 for lm in hand_landmarks
             ])
 
-            # fix: indented into the loop, pass proto, connections (plural)
+            # indented into the loop, pass proto, connections (plural)
             self.mp_drawing.draw_landmarks(
                 annotated_img,
                 proto,
@@ -229,7 +271,7 @@ def main(args=None):
         rclpy.spin(node)
 
     except Exception as e:
-        node.get_logger().info(f"[ERROR] {e}")
+        node.get_logger().error(f"{e}")
 
     finally:
         node.destroy_node()
