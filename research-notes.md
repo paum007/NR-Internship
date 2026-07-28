@@ -22,5 +22,7 @@ USE CHUNKING FOR THE ESP_NOW.
 [MLX90393 DATASHEET](https://uk.store.bambulab.com/products/tpu-for-ams?id=532448685015678999)
 [MLX90393 VISUALISATION](https://github.com/notvenky/eFlesh/tree/main/visualizer)
 
-![This is what I found on the 3D printer settings for the TPU](image.png)
+![This is what I found on the 3D printer settings for the TPU](bambulab_TPU_settings.png)
 
+
+![circuit design for the ESP and servo hat](circuit_design.png)
