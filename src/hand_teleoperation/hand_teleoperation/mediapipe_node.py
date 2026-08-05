@@ -25,32 +25,26 @@ data[3]. But Float64MultiArray is the fast way to get moving, and you can upgrad
 FINGER_JOINTS = {
     # index finger
     "index_mcp": (0, 5, 6),
-    "index_pip": (5, 6, 7),
-    "index_dip": (6, 7, 8),
+    # "index_pip": (5, 6, 7),
+    # "index_dip": (6, 7, 8),
 
     # middle finger
     "middle_mcp": (0, 9, 10),
-    "middle_pip": (9, 10, 11),
-    "middle_dip": (10, 11, 12),
+    # "middle_pip": (9, 10, 11),
+    # "middle_dip": (10, 11, 12),
 
     # ring finger
     "ring_mcp": (0, 13, 14),
-    "ring_pip": (13, 14, 15),
-    "ring_dip": (14, 15, 16),
-
-    #pinky
-    "pinky_mcp": (0, 17, 18),
-    "pinky_pip": (17, 18, 19),
-    "pinky_dip": (18, 19, 20),
+    # "ring_pip": (13, 14, 15),
+    # "ring_dip": (14, 15, 16),
 
     # thumb
     "thumb_mcp": (1, 2, 3),
-    "thumb_ip": (2, 3, 4), 
+    # "thumb_ip": (2, 3, 4), 
 }
 
 ANGLE_OFFSETS = {
-    "index_mcp": -10,
-    "index_pip": +10
+    "index_mcp": -10
 }
 
 qos_profile = QoSProfile(
