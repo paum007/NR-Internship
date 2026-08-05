@@ -1,11 +1,10 @@
 #include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
 
 // WiFi ---
 #include <WiFi.h>
-#include "esp_wpa2.h"
-
-// Servo imports ---
-#include <ESP32Servo.h>
+#include "esp_eap_client.h"
 
 // MicroROS imports ---
 #include <stdio.h>
@@ -21,25 +20,33 @@
 #define NODE_NAME "esp_henry"
 #define SUBSCRIBER_TOPIC "hand_angles"
 
+// Must match ROS_DOMAIN_ID on the host. micro-ROS defaults to 0, so without this the
+// ESP32 lands in a different DDS domain and never sees the publisher.
+#define ROS_DOMAIN 42
+
 // Enterprise WiFi credentials ----
 #define WIFI_SSID "Modern_Networks"
 #define EAP_IDENTITY "Modern_Networks"
 #define EAP_USERNAME "Robotarium-7"
 #define EAP_PASSWORD "Dx4rHy+nGn"
 
-#define INDEX_MCP_PIN 12
-#define INDEX_PIP_PIN 13
-#define INDEX_DIP_PIN 14
+// Servo settings
+Adafruit_PWMServoDriver pca9685 = Adafruit_PWMServoDriver(0x40); // Create object to represent PCA9685 at default I2C address
 
-Servo servoIndexMCP;
-Servo servoIndexPIP;
-Servo servoIndexDIP;
+#define SERVOMIN 80  // Minimum pulse count (0 deg)
+#define SERVOMAX 600 // Maximum pulse count (180 deg)
 
-int targetMCP = 0, targetPIP = 0, targetDIP = 0;   // where ROS wants them
-int currentMCP = 0, currentPIP = 0, currentDIP = 0; // where they are now
+// PCA9685 output channels (0-15), NOT ESP32 GPIO numbers
+#define INDEX_CH 0
+#define MIDDLE_CH 1
+#define RING_CH 2
+
+int targetINDEX = 0, targetMIDDLE = 0, targetRING = 0;   // where ROS wants them
+int currentINDEX = 0, currentMIDDLE = 0, currentRING = 0; // where they are now
 
 const int STEP = 2; // degrees moved per update  (smaller = smoother)
-const int STEP_DELAY = 0; // ms between updates (larger  = slower)
+const unsigned long STEP_INTERVAL = 20; // ms between updates, matches the 50Hz frame (larger = slower)
+unsigned long lastStep = 0;
 
 // MicroROS Objects ----
 
@@ -69,21 +76,28 @@ void error_loop(){
 void subscription_callback(const void *msgin){
     const hand_teleoperation_interfaces__msg__HandAngles *msg = (const hand_teleoperation_interfaces__msg__HandAngles *)msgin;
 
-    Serial.printf("[ROS] Received  MCP: %.1f  PIP: %.1f  DIP: %.1f\n",
-                  msg->index_mcp, msg->index_pip, msg->index_dip);
-    targetMCP = (int)msg->index_mcp;
-    targetPIP = (int)msg->index_pip;
-    targetDIP = (int)msg->index_dip;
+    Serial.printf("[ROS] Received  INDEX: %.1f  MIDDLE: %.1f  RING: %.1f\n",
+                  msg->index_mcp, msg->middle_mcp, msg->ring_mcp);
+
+    // Clamp: a dropped/garbled frame must never push the servos past their travel
+    targetINDEX = constrain((int)msg->index_mcp, 0, 180);
+    targetMIDDLE = constrain((int)msg->middle_mcp, 0, 180);
+    targetRING = constrain((int)msg->ring_mcp, 0, 180);
 }
 
-void stepServo(Servo &s, int &current, int target, int step){
+void stepServo(uint8_t channel, int &current, int target, int step){
+
     if (current < target) {
         current = min(current + step, target);
     }
     else if (current > target) {
         current = max(current - step, target);
     }
-    s.write(current);   // always push the current position to the servo
+    else {
+        return; // already there, skip the I2C write
+    }
+
+    pca9685.setPWM(channel, 0, map(current, 0, 180, SERVOMIN, SERVOMAX));
 }
 
 
@@ -95,10 +109,10 @@ void connectEnterpriseWiFi(){
     WiFi.mode(WIFI_STA);
 
     // PEAP / MSCHAPv2, no anonymous indentity, no CA cert
-    esp_wifi_sta_wpa2_ent_set_identity((uint8_t *)EAP_IDENTITY, strlen(EAP_IDENTITY));
-    esp_wifi_sta_wpa2_ent_set_username((uint8_t *)EAP_USERNAME, strlen(EAP_USERNAME));
-    esp_wifi_sta_wpa2_ent_set_password((uint8_t *)EAP_PASSWORD, strlen(EAP_PASSWORD));
-    esp_wifi_sta_wpa2_ent_enable();
+    esp_eap_client_set_identity((uint8_t *)EAP_IDENTITY, strlen(EAP_IDENTITY));
+    esp_eap_client_set_username((uint8_t *)EAP_USERNAME, strlen(EAP_USERNAME));
+    esp_eap_client_set_password((uint8_t *)EAP_PASSWORD, strlen(EAP_PASSWORD));
+    esp_wifi_sta_enterprise_enable();
 
     WiFi.begin(WIFI_SSID);
 
@@ -117,9 +131,29 @@ void setup(){
     Serial.begin(115200);
     pinMode(LED_BUILTIN, OUTPUT);
 
+    // PCA9685 board setup
+    pca9685.begin();
+    pca9685.setOscillatorFrequency(27000000); // must be set before setPWMFreq for an accurate frame rate
+    pca9685.setPWMFreq(50); // set pwm frequency to 50Hz
+
     connectEnterpriseWiFi(); // join enterprise wifi
 
-    set_microros_wifi_transports("", "", agent_ip, agent_port);
+    // WiFi is already associated by connectEnterpriseWiFi(). set_microros_wifi_transports()
+    // would call WiFi.begin("", "") first, which fails with "SSID too long or missing!" —
+    // enterprise credentials can't be passed as an ssid/pass pair. Install the UDP transport
+    // directly instead; this is the rest of what that helper does.
+    static struct micro_ros_agent_locator locator;
+    locator.address = agent_ip;
+    locator.port = agent_port;
+
+    rmw_uros_set_custom_transport(
+        false,
+        (void *) &locator,
+        platformio_transport_open,
+        platformio_transport_close,
+        platformio_transport_write,
+        platformio_transport_read);
+
     delay(200);
 
     // QoS Profile ----
@@ -129,20 +163,16 @@ void setup(){
     qos.durability = RMW_QOS_POLICY_DURABILITY_VOLATILE;
     qos.history = RMW_QOS_POLICY_HISTORY_KEEP_LAST;
     qos.depth = 1;
-
-    // attaching the servos
-    servoIndexMCP.attach(INDEX_MCP_PIN);
-    servoIndexPIP.attach(INDEX_PIP_PIN);
-    servoIndexDIP.attach(INDEX_DIP_PIN);
-
-    // reset to 0 once on startup
-    servoIndexMCP.write(0);
-    servoIndexPIP.write(0);
-    servoIndexDIP.write(0);
-    delay(500);
-
+    
     allocator = rcl_get_default_allocator();
-    RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
+
+    // Set the DDS domain explicitly rather than using rclc_support_init(), which has no
+    // domain parameter and would leave this node on domain 0.
+    rcl_init_options_t init_options = rcl_get_zero_initialized_init_options();
+    RCCHECK(rcl_init_options_init(&init_options, allocator));
+    RCCHECK(rcl_init_options_set_domain_id(&init_options, ROS_DOMAIN));
+
+    RCCHECK(rclc_support_init_with_options(&support, 0, NULL, &init_options, &allocator));
     RCCHECK(rclc_node_init_default(&node, NODE_NAME, "", &support));
 
     // Synching the clock to the agent
@@ -183,9 +213,12 @@ void setup(){
 void loop(){
     RCSOFTCHECK(rclc_executor_spin_some(&executor, RCL_MS_TO_NS(10)));
 
-    stepServo(servoIndexMCP, currentMCP, targetMCP, STEP);
-    stepServo(servoIndexPIP, currentPIP, targetPIP, STEP);
-    stepServo(servoIndexDIP, currentDIP, targetDIP, STEP);
+    // Non-blocking: keeps the executor spinning while the servos ramp
+    if (millis() - lastStep >= STEP_INTERVAL){
+        lastStep = millis();
 
-    delay(STEP_DELAY);
+        stepServo(INDEX_CH, currentINDEX, targetINDEX, STEP);
+        stepServo(MIDDLE_CH, currentMIDDLE, targetMIDDLE, STEP);
+        stepServo(RING_CH, currentRING, targetRING, STEP);
+    }
 }
