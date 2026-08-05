@@ -4,11 +4,12 @@
 #include <Adafruit_PWMServoDriver.h>
 
 // Create object to represent PCA9685 at default I2C address
-Adafruit_PWMServoDriver pca9685 = Adafruit_PWMServoDriver(0x40);#define SERVOMIN  80  // Minimum value
+Adafruit_PWMServoDriver pca9685 = Adafruit_PWMServoDriver(0x40);
 
-#define SERVOMAX  600  // Maximum value
-#define SER0  0   //Servo Motor 0 on connector 0
-#define SER1  12  //Servo Motor 1 on connector 12
+#define SERVOMIN 80  // Minimum value
+#define SERVOMAX 600  // Maximum value
+#define SER0 0   //Servo Motor 0 on connector 0
+#define SER1 12  //Servo Motor 1 on connector 12
 
 // Variables for Servo Motor positions (expand as required)
 int pwm0;
@@ -19,11 +20,12 @@ void setup() {
     // Serial monitor setup
     Serial.begin(115200);// Print to monitor
     Serial.println("PCA9685 Servo Test");// Initialize PCA9685
-    pca9685.begin();// Set PWM Frequency to 50Hz
-    pca9685.setPWMFreq(50);}
+    pca9685.begin();
+    pca9685.setPWMFreq(50);} // set pwm frequency to 50Hz
     
-void loop() {// Move Motor 0 from 0 to 180 degrees
-
+void loop() {
+    
+    // Move Motor 0 from 0 to 180 degrees
     for (int posDegrees = 0; posDegrees <= 180; posDegrees++) {
         
         // Determine PWM pulse width
@@ -81,4 +83,3 @@ void loop() {// Move Motor 0 from 0 to 180 degrees
     }
 
 }
-
