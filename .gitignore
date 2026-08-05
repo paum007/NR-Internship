@@ -228,3 +228,6 @@ install/
 log/
 __pycache__/
 *.egg-info/
+
+presentation-prompt.md
+.gitignore
