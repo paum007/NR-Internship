@@ -65,7 +65,6 @@ QoS profile:
   Deadline: Infinite
   Liveliness: AUTOMATIC
   Liveliness lease duration: Infinite
-
 """
 
 class LandmarkDetector(Node):
@@ -81,7 +80,7 @@ class LandmarkDetector(Node):
         
         self.publisher = self.create_publisher(
             HandAngles,
-            'hand_angles',
+            'landmark_angles',
             qos_profile)
 
         self.create_timer(1/30.0, self.publish_latest)
@@ -122,7 +121,6 @@ class LandmarkDetector(Node):
         self.prev_angles = {}
 
     def img_callback(self, msg):
-
         try:
             self.current_frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='rgb8') # converting the image from a ROS2 format to an array format that cv2 can process it
             self.mp_image = mp.Image(image_format = mp.ImageFormat.SRGB, data=self.current_frame) # change the image into the correct format for MediaPipe to read it
@@ -168,11 +166,7 @@ class LandmarkDetector(Node):
 
                 # checking if the value is within a certain threshold to reduce jitter
                 for name, value in angles.items():
-                    prev = self.prev_angles.get(name)
-                    if prev is not None and abs(value-prev) < self.threshold:
-                        value = prev
-                    value += ANGLE_OFFSETS.get(name, 0)     # .get(name, 0) → 0 if joint isn't in the table
-                    setattr(msg, name, value) # setattr: allows you to set the value of an attribute of an object dynamically at runtime using the attribute's name as a string
+                    setattr(msg, name, value + ANGLE_OFFSETS.get(name, 0)) # setattr: allows you to set the value of an attribute of an object dynamically at runtime using the attribute's name as a string
                 self.latest_msg = msg # store instead of publish
             
         except Exception as e:
@@ -184,28 +178,6 @@ class LandmarkDetector(Node):
             return
         self.latest_msg.header.stamp = self.get_clock().now().to_msg()  # optional: fresh timestamp
         self.publisher.publish(self.latest_msg)
-
-
-    def get_joint_angles(self, a, b, c):
-        # get the vectors between the points
-        v1 = b-a
-        v2 = c-b
-
-        # calculate the dot product
-        dot_product = np.dot(v1, v2) # v1.v2 = (v1[0] x v2[0]) + (v1[1] x v2[1]) + (v1[2] x v2[2])
-
-        #calcualte magnitude
-        magnitude_v1 = np.linalg.norm(v1)
-        magnitude_v2 = np.linalg.norm(v2)
-
-        #calculate the angle of the vectors
-        cos_angle = np.clip(dot_product/(magnitude_v1*magnitude_v2), -1.0, 1.0)
-        angle_rad = np.arccos(cos_angle)
-
-        #convert to degrees
-        angle_deg = np.degrees(angle_rad)
-        
-        return round(angle_deg, 0) # Add or take away degrees from here when calibrating
 
     def draw_landmarks(self):
         MARGIN = 10
