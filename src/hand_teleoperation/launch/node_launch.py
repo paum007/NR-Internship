@@ -19,11 +19,11 @@ def generate_launch_description():
             name='mediapipe_node'
         ),
 
-        Node(
-            package='hand_teleoperation',
-            executable='filter',
-            name='filter'
-        ),
+        # Node(
+        #     package='hand_teleoperation',
+        #     executable='filter',
+        #     name='filter'
+        # ),
 
         Node(
             package='hand_teleoperation',
