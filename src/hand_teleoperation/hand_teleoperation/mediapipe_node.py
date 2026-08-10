@@ -179,6 +179,27 @@ class LandmarkDetector(Node):
         self.latest_msg.header.stamp = self.get_clock().now().to_msg()  # optional: fresh timestamp
         self.publisher.publish(self.latest_msg)
 
+    def get_joint_angles(self, a, b, c):
+        # get the vectors between the points
+        v1 = b-a
+        v2 = c-b
+
+        # calculate the dot product
+        dot_product = np.dot(v1, v2) # v1.v2 = (v1[0] x v2[0]) + (v1[1] x v2[1]) + (v1[2] x v2[2])
+
+        #calcualte magnitude
+        magnitude_v1 = np.linalg.norm(v1)
+        magnitude_v2 = np.linalg.norm(v2)
+
+        #calculate the angle of the vectors
+        cos_angle = np.clip(dot_product/(magnitude_v1*magnitude_v2), -1.0, 1.0)
+        angle_rad = np.arccos(cos_angle)
+
+        #convert to degrees
+        angle_deg = np.degrees(angle_rad)
+
+        return round(angle_deg, 0) # Add or take away degrees from here when calibrating
+
     def draw_landmarks(self):
         MARGIN = 10
         FONT_SIZE = 1
