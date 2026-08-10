@@ -17,6 +17,18 @@ def generate_launch_description():
             package='hand_teleoperation',
             executable='mediapipe_node',
             name='mediapipe_node'
+        ),
+
+        Node(
+            package='hand_teleoperation',
+            executable='filter',
+            name='filter'
+        ),
+
+        Node(
+            package='hand_teleoperation',
+            executable='filter_node',
+            name='filter_node'
         )
 
         # maybe add a delay node that measures delay in mediapipe frames
