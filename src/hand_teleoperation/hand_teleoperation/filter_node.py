@@ -1,6 +1,5 @@
 import rclpy
 import numpy as np
-from functools import partial
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from geometry_msgs.msg import PoseArray
@@ -81,8 +80,6 @@ qos_profile = QoSProfile(
     history=HistoryPolicy.KEEP_LAST,
     depth=1
 )
-
-
 class Filter(Node):
     def __init__(self):
         super().__init__('filter')
@@ -103,29 +100,24 @@ class Filter(Node):
             self.on_mediapipe,
             qos_profile)
 
-        self.pub_mp = self.create_publisher(
-            HandAngles,
-            '/filtered_angles/mediapipe',
-            qos_profile)
-
         ### QUEST PIPELINE - raw landmarks, angles computed below ###
         # handedness comes from which topic it arrived on, since PoseArray has
         # no field for it
         self.sub_quest_left = self.create_subscription(
             PoseArray,
             '/teleop_hand_tracking/left/landmarks',
-            partial(self.on_quest, handedness='Left'),
+            self.on_quest_left,
             qos_profile)
 
         self.sub_quest_right = self.create_subscription(
             PoseArray,
             '/teleop_hand_tracking/right/landmarks',
-            partial(self.on_quest, handedness='Right'),
+            self.on_quest_right,
             qos_profile)
 
-        self.pub_quest = self.create_publisher(
+        self.publisher_all = self.create_publisher(
             HandAngles,
-            '/filtered_angles/quest',
+            '/hand_angles',
             qos_profile)
 
         # (source, handedness) -> {joint_name: last published angle}. Keyed this
@@ -150,7 +142,13 @@ class Filter(Node):
         angles = {name: getattr(msg, name) for name in JOINT_NAMES}
 
         smoothed = self.smooth(angles, ('mediapipe', msg.handedness))
-        self.publish(self.pub_mp, smoothed, msg.header, msg.handedness)
+        self.publish(smoothed, msg.header, msg.handedness)
+
+    def on_quest_left(self, msg):
+        self.on_quest(msg, 'Left')
+
+    def on_quest_right(self, msg):
+            self.on_quest(msg, 'Right')
 
     def on_quest(self, msg, handedness):
         if len(msg.poses) < self.quest_min_poses:
@@ -171,7 +169,7 @@ class Filter(Node):
                 points[a_idx], points[b_idx], points[c_idx])
 
         smoothed = self.smooth(angles, ('quest', handedness))
-        self.publish(self.pub_quest, smoothed, msg.header, handedness)
+        self.publish(smoothed, msg.header, handedness)
 
     def smooth(self, angles, key):
         '''Deadband: a change smaller than the threshold is held at the previous
@@ -195,7 +193,7 @@ class Filter(Node):
 
         return smoothed
 
-    def publish(self, publisher, angles, header, handedness):
+    def publish(self, angles, header, handedness):
         msg = HandAngles()
         msg.header = header   # the SOURCE stamp - restamping here would hide the
                               # real latency from the delay measurements
@@ -204,7 +202,7 @@ class Filter(Node):
         for name, value in angles.items():
             setattr(msg, name, float(value))
 
-        publisher.publish(msg)
+        self.publisher_all.publish(msg)
 
     def get_joint_angles(self, a, b, c):
         # get the vectors between the points
