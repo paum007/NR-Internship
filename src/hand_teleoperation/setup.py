@@ -27,6 +27,7 @@ setup(
             'delay_pub = hand_teleoperation.delay_pub:main',
             #'delay_capture = hand_teleoperation.delay_capture:main',
             'mediapipe_node = hand_teleoperation.mediapipe_node:main',
+            'filter = hand_teleoperation.filter:main',
         ],
     },
 )
