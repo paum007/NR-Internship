@@ -24,11 +24,22 @@
 // ESP32 lands in a different DDS domain and never sees the publisher.
 #define ROS_DOMAIN 42
 
+// Network selection ----
+// Uncomment to join a phone hotspot (plain WPA2) instead of the enterprise network.
+// Comment it back out to go back to Modern_Networks.
+#define USE_HOTSPOT
+
+#ifdef USE_HOTSPOT
+// Personal hotspot credentials ----
+#define WIFI_SSID "National_Robotarium"
+#define WIFI_PASSWORD "NatRobotarium309"
+#else
 // Enterprise WiFi credentials ----
 #define WIFI_SSID "Modern_Networks"
 #define EAP_IDENTITY "Modern_Networks"
 #define EAP_USERNAME "Robotarium-7"
 #define EAP_PASSWORD "Dx4rHy+nGn"
+#endif
 
 // Servo settings
 Adafruit_PWMServoDriver pca9685 = Adafruit_PWMServoDriver(0x40); // Create object to represent PCA9685 at default I2C address
@@ -62,7 +73,13 @@ rcl_allocator_t allocator;
 hand_teleoperation_interfaces__msg__HandAngles incoming_msg;
 
 // Agent ----
+// The host lands on a different subnet on a hotspot, so the agent address changes with it.
+// Check the laptop's IP on the hotspot (`ip addr` / `hostname -I`) and update the hotspot line.
+#ifdef USE_HOTSPOT
+IPAddress agent_ip(10, 47, 135, 173); // 1change depending on wifi
+#else
 IPAddress agent_ip(192, 168, 88, 198); // 192.168.88.198
+#endif
 size_t agent_port = 8888;
 
 void error_loop(){
@@ -101,13 +118,21 @@ void stepServo(uint8_t channel, int &current, int target, int step){
 }
 
 
-void connectEnterpriseWiFi(){
-    Serial.println("Connecting to enterprise WiFi: ");
+void connectWiFi(){
+#ifdef USE_HOTSPOT
+    Serial.print("Connecting to hotspot: ");
+#else
+    Serial.print("Connecting to enterprise WiFi: ");
+#endif
     Serial.println(WIFI_SSID);
 
     WiFi.disconnect(true);
     WiFi.mode(WIFI_STA);
 
+#ifdef USE_HOTSPOT
+    // Plain WPA2-PSK, no EAP setup needed
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+#else
     // PEAP / MSCHAPv2, no anonymous indentity, no CA cert
     esp_eap_client_set_identity((uint8_t *)EAP_IDENTITY, strlen(EAP_IDENTITY));
     esp_eap_client_set_username((uint8_t *)EAP_USERNAME, strlen(EAP_USERNAME));
@@ -115,6 +140,7 @@ void connectEnterpriseWiFi(){
     esp_wifi_sta_enterprise_enable();
 
     WiFi.begin(WIFI_SSID);
+#endif
 
     while (WiFi.status() != WL_CONNECTED){
         delay(500);
@@ -136,7 +162,7 @@ void setup(){
     pca9685.setOscillatorFrequency(27000000); // must be set before setPWMFreq for an accurate frame rate
     pca9685.setPWMFreq(50); // set pwm frequency to 50Hz
 
-    connectEnterpriseWiFi(); // join enterprise wifi
+    connectWiFi(); // join enterprise wifi or hotspot, see USE_HOTSPOT
 
     // WiFi is already associated by connectEnterpriseWiFi(). set_microros_wifi_transports()
     // would call WiFi.begin("", "") first, which fails with "SSID too long or missing!" —
