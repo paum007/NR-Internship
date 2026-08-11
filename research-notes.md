@@ -26,3 +26,47 @@ USE CHUNKING FOR THE ESP_NOW.
 
 
 ![circuit design for the ESP and servo hat](circuit_design.png)
+
+ros2 launch arm_teleop vuer_quest_teleop.launch.py \
+    hardware_type:=fake \
+    use_rviz:=true \
+    exotica_ready_timeout:=600.0 \
+    enable_cameras:=false \
+    enable_camera_streams:=false \
+    enable_hand_tracking:=true \
+    hide_hand_meshes:=false
+
+Run from a host terminal:
+
+  TELEOP_CONTAINER=$(docker ps --format '{{.Names}}' | grep 'nr_lerobot.*teleop' | head -n 1)
+
+  Left-hand output:
+
+  docker exec "$TELEOP_CONTAINER" bash -lc '
+  source /opt/ros/humble/setup.bash
+  source /ws/install/setup.bash
+  ros2 topic echo /teleop_hand_tracking/left/landmarks
+  '
+
+  Right-hand output:
+
+  docker exec "$TELEOP_CONTAINER" bash -lc '
+  source /opt/ros/humble/setup.bash
+  source /ws/install/setup.bash
+  ros2 topic echo /teleop_hand_tracking/right/landmarks
+  '
+
+source /opt/ros/humble/setup.bash
+  source /ws/install/setup.bash
+
+  ros2 run arm_teleop vuer_quest_bridge --ros-args \
+    --params-file /ws/install/arm_teleop/share/arm_teleop/config/vuer_quest_bridge.yaml \
+    -p cert_file:="$VUER_CERT_FILE" \
+    -p key_file:="$VUER_KEY_FILE" \
+    -p enable_camera_streams:=false \
+    -p enable_hand_tracking:=true \
+    -p hide_hand_meshes:=false
+
+  Then open on Quest:
+
+  https://vuer.ai?ws=wss://10.47.135.173:8012
