@@ -47,31 +47,17 @@ Quest / vuer pose index meaning - 25 joints, metacarpal-based:
 This is NOT MediaPipe's numbering - the Quest has an extra metacarpal joint per
 finger that MediaPipe doesn't measure, which is why mediapipe_node keeps its own
 table instead of sharing this one.
+
+Only the MCP joints are listed, because that's all HandAngles.msg carries - one
+angle per finger, no pinky. The triple is (metacarpal, proximal, intermediate),
+so the angle sits at the knuckle, the same joint mediapipe_node measures with
+its wrist-based (0, mcp, pip) triple.
 '''
 QUEST_JOINTS = {
-    # index finger
     "index_mcp": (5, 6, 7),
-    "index_pip": (6, 7, 8),
-    "index_dip": (7, 8, 9),
-
-    # middle finger
     "middle_mcp": (10, 11, 12),
-    "middle_pip": (11, 12, 13),
-    "middle_dip": (12, 13, 14),
-
-    # ring finger
     "ring_mcp": (15, 16, 17),
-    "ring_pip": (16, 17, 18),
-    "ring_dip": (17, 18, 19),
-
-    # pinky
-    "pinky_mcp": (20, 21, 22),
-    "pinky_pip": (21, 22, 23),
-    "pinky_dip": (22, 23, 24),
-
-    # thumb
     "thumb_mcp": (1, 2, 3),
-    "thumb_ip": (2, 3, 4),
 }
 
 qos_profile = QoSProfile(
@@ -128,10 +114,12 @@ class Filter(Node):
         # a PoseArray shorter than this can't fill every joint triple
         self.quest_min_poses = max(i for tri in QUEST_JOINTS.values() for i in tri) + 1
 
-        # catches a QUEST_JOINTS key that doesn't exist in HandAngles.msg
+        # catches a QUEST_JOINTS key that doesn't exist in HandAngles.msg.
+        # Fatal, not a warning: otherwise the node starts fine and only dies on
+        # the first Quest frame, when publish() setattr's the missing field.
         mismatch = set(QUEST_JOINTS) ^ set(JOINT_NAMES)
         if mismatch:
-            self.get_logger().error(
+            raise RuntimeError(
                 f"[INIT] joint names don't match HandAngles.msg: {sorted(mismatch)}")
 
         self.get_logger().info(
