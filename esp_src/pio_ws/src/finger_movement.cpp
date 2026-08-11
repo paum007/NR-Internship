@@ -27,12 +27,18 @@
 // Network selection ----
 // Uncomment to join a phone hotspot (plain WPA2) instead of the enterprise network.
 // Comment it back out to go back to Modern_Networks.
-#define USE_HOTSPOT
+// #define USE_HOTSPOT
+#define NR_WIFI
+
+#ifdef NR_WIFI
+#define WIFI_SSID "National_Robotarium"
+#define WIFI_PASSWORD "NatRobotarium309"
+#else
 
 #ifdef USE_HOTSPOT
 // Personal hotspot credentials ----
-#define WIFI_SSID "National_Robotarium"
-#define WIFI_PASSWORD "NatRobotarium309"
+#define WIFI_SSID "pauma_hotspot"
+#define WIFI_PASSWORD "23esu08arsom0"
 #else
 // Enterprise WiFi credentials ----
 #define WIFI_SSID "Modern_Networks"
