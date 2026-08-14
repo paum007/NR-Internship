@@ -33,9 +33,7 @@
 #ifdef NR_WIFI
 #define WIFI_SSID "National_Robotarium"
 #define WIFI_PASSWORD "NatRobotarium309"
-#else
-
-#ifdef USE_HOTSPOT
+#elif defined(USE_HOTSPOT)
 // Personal hotspot credentials ----
 #define WIFI_SSID "pauma_hotspot"
 #define WIFI_PASSWORD "23esu08arsom0"
@@ -81,7 +79,8 @@ hand_teleoperation_interfaces__msg__HandAngles incoming_msg;
 // Agent ----
 // The host lands on a different subnet on a hotspot, so the agent address changes with it.
 // Check the laptop's IP on the hotspot (`ip addr` / `hostname -I`) and update the hotspot line.
-#ifdef USE_HOTSPOT
+
+#ifdef NR_WIFI
 IPAddress agent_ip(10, 47, 135, 173); // 1change depending on wifi
 #else
 IPAddress agent_ip(192, 168, 88, 198); // 192.168.88.198
@@ -122,11 +121,11 @@ void stepServo(uint8_t channel, int &current, int target, int step){
 
     pca9685.setPWM(channel, 0, map(current, 0, 180, SERVOMIN, SERVOMAX));
 }
-
+// find the min and max from the current, because how will it know how to map without a range of values
 
 void connectWiFi(){
-#ifdef USE_HOTSPOT
-    Serial.print("Connecting to hotspot: ");
+#ifdef NR_WIFI
+    Serial.print("Connecting to WiFi: ");
 #else
     Serial.print("Connecting to enterprise WiFi: ");
 #endif
@@ -135,7 +134,7 @@ void connectWiFi(){
     WiFi.disconnect(true);
     WiFi.mode(WIFI_STA);
 
-#ifdef USE_HOTSPOT
+#ifdef NR_WIFI
     // Plain WPA2-PSK, no EAP setup needed
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 #else
@@ -161,6 +160,8 @@ void connectWiFi(){
 
 void setup(){
     Serial.begin(115200);
+    Serial.printf("Resetted!! Reset reason: %d\n", esp_reset_reason());
+
     pinMode(LED_BUILTIN, OUTPUT);
 
     // PCA9685 board setup
@@ -169,6 +170,7 @@ void setup(){
     pca9685.setPWMFreq(50); // set pwm frequency to 50Hz
 
     connectWiFi(); // join enterprise wifi or hotspot, see USE_HOTSPOT
+    WiFi.setSleep(false);
 
     // WiFi is already associated by connectEnterpriseWiFi(). set_microros_wifi_transports()
     // would call WiFi.begin("", "") first, which fails with "SSID too long or missing!" —
