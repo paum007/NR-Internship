@@ -54,10 +54,10 @@ Adafruit_PWMServoDriver pca9685 = Adafruit_PWMServoDriver(0x40); // Create objec
 // PCA9685 output channels (0-15), NOT ESP32 GPIO numbers
 #define INDEX_CH 0
 #define MIDDLE_CH 1
-#define RING_CH 2
+#define THUMB_CH 2
 
-int targetINDEX = 0, targetMIDDLE = 0, targetRING = 0;   // where ROS wants them
-int currentINDEX = 0, currentMIDDLE = 0, currentRING = 0; // where they are now
+int targetINDEX = 0, targetMIDDLE = 0, targetTHUMB = 0;   // where ROS wants them
+int currentINDEX = 0, currentMIDDLE = 0, currentTHUMB = 0; // where they are now
 
 const int STEP = 2; // degrees moved per update  (smaller = smoother)
 const unsigned long STEP_INTERVAL = 20; // ms between updates, matches the 50Hz frame (larger = slower)
@@ -98,13 +98,13 @@ void error_loop(){
 void subscription_callback(const void *msgin){
     const hand_teleoperation_interfaces__msg__HandAngles *msg = (const hand_teleoperation_interfaces__msg__HandAngles *)msgin;
 
-    Serial.printf("[ROS] Received  INDEX: %.1f  MIDDLE: %.1f  RING: %.1f\n",
-                  msg->index_mcp, msg->middle_mcp, msg->ring_mcp);
+    Serial.printf("[ROS] Received  INDEX: %.1f  MIDDLE: %.1f  THUMB: %.1f\n",
+                  msg->index_mcp, msg->middle_mcp, msg->thumb_mcp);
 
     // Clamp: a dropped/garbled frame must never push the servos past their travel
     targetINDEX = constrain((int)msg->index_mcp, 0, 180);
-    targetMIDDLE = constrain((int)msg->middle_mcp, 0, 180);
-    targetRING = constrain((int)msg->ring_mcp, 0, 180);
+    targetMIDDLE = 180 - constrain((int)msg->middle_mcp, 0, 180);
+    targetTHUMB = constrain((int)msg->thumb_mcp, 0, 180);
 }
 
 void stepServo(uint8_t channel, int &current, int target, int step){
@@ -222,15 +222,15 @@ void setup(){
         &node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(hand_teleoperation_interfaces, msg, HandAngles), SUBSCRIBER_TOPIC, &qos));
 
-    static char handedness_buf[20];
-    incoming_msg.handedness.data = handedness_buf;
-    incoming_msg.handedness.capacity = 20;
-    incoming_msg.handedness.size = 0;
+    // static char handedness_buf[20];
+    // incoming_msg.handedness.data = handedness_buf;
+    // incoming_msg.handedness.capacity = 20;
+    // incoming_msg.handedness.size = 0;
 
-    static char frameid_buf[20];
-    incoming_msg.header.frame_id.data = frameid_buf;
-    incoming_msg.header.frame_id.capacity = 20;
-    incoming_msg.header.frame_id.size = 0;
+    // static char frameid_buf[20];
+    // incoming_msg.header.frame_id.data = frameid_buf;
+    // incoming_msg.header.frame_id.capacity = 20;
+    // incoming_msg.header.frame_id.size = 0;
 
     RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
     RCCHECK(rclc_executor_add_subscription(
@@ -253,6 +253,6 @@ void loop(){
 
         stepServo(INDEX_CH, currentINDEX, targetINDEX, STEP);
         stepServo(MIDDLE_CH, currentMIDDLE, targetMIDDLE, STEP);
-        stepServo(RING_CH, currentRING, targetRING, STEP);
+        stepServo(THUMB_CH, currentTHUMB, targetTHUMB, STEP);
     }
 }
