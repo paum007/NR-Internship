@@ -73,7 +73,7 @@ class Filter(Node):
         # noise level differs per source - monocular MediaPipe is jumpier than
         # headset tracking - so both are tunable from the launch file
         self.declare_parameter('threshold_mediapipe', 2.0)
-        self.declare_parameter('threshold_quest', 1.0)
+        self.declare_parameter('threshold_quest', 3.0)
         self.threshold = {
             'mediapipe': self.get_parameter('threshold_mediapipe').value,
             'quest': self.get_parameter('threshold_quest').value,
@@ -221,12 +221,16 @@ def main(args=None):
     try:
         rclpy.spin(node)
 
+    except KeyboardInterrupt:
+        pass
+
     except Exception as e:
         node.get_logger().error(f"{e}")
 
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':
