@@ -241,7 +241,6 @@ void setup(){
         ON_NEW_DATA));
 
     Serial.println("[INFO] micro-ROS node ready.");    
-
 }
 
 void loop(){
