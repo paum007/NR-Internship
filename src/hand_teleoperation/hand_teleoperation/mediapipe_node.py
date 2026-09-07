@@ -39,8 +39,8 @@ FINGER_JOINTS = {
     # "ring_dip": (14, 15, 16),
 
     # thumb
-    "thumb_mcp": (1, 2, 3),
-    # "thumb_ip": (2, 3, 4), 
+    #"thumb_mcp": (1, 2, 3),
+    "thumb_ip": (2, 3, 4), 
 }
 
 ANGLE_OFFSETS = {

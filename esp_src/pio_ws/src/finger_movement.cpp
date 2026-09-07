@@ -4,7 +4,7 @@
 
 // WiFi ---
 #include <WiFi.h>
-#include "esp_eap_client.h"
+#include "esp_wpa2.h"
 
 // MicroROS imports ---
 #include <stdio.h>
@@ -27,8 +27,8 @@
 // Network selection ----
 // Uncomment to join a phone hotspot (plain WPA2) instead of the enterprise network.
 // Comment it back out to go back to Modern_Networks.
-// #define USE_HOTSPOT
-#define NR_WIFI
+#define USE_HOTSPOT
+// #define NR_WIFI
 
 #ifdef NR_WIFI
 #define WIFI_SSID "National_Robotarium"
@@ -81,7 +81,9 @@ hand_teleoperation_interfaces__msg__HandAngles incoming_msg;
 // Check the laptop's IP on the hotspot (`ip addr` / `hostname -I`) and update the hotspot line.
 
 #ifdef NR_WIFI
-IPAddress agent_ip(10, 47, 135, 173); // 1change depending on wifi
+IPAddress agent_ip(10, 47, 132, 183); // 1change depending on wifi
+#elif defined(USE_HOTSPOT)
+IPAddress agent_ip(172,20,10,11);
 #else
 IPAddress agent_ip(192, 168, 88, 198); // 192.168.88.198
 #endif
@@ -99,12 +101,12 @@ void subscription_callback(const void *msgin){
     const hand_teleoperation_interfaces__msg__HandAngles *msg = (const hand_teleoperation_interfaces__msg__HandAngles *)msgin;
 
     Serial.printf("[ROS] Received  INDEX: %.1f  MIDDLE: %.1f  THUMB: %.1f\n",
-                  msg->index_mcp, msg->middle_mcp, msg->thumb_mcp);
+                  msg->index_mcp, msg->middle_mcp, msg->thumb_ip);
 
     // Clamp: a dropped/garbled frame must never push the servos past their travel
     targetINDEX = constrain((int)msg->index_mcp, 0, 180);
     targetMIDDLE = 180 - constrain((int)msg->middle_mcp, 0, 180);
-    targetTHUMB = constrain((int)msg->thumb_mcp, 0, 180);
+    targetTHUMB = constrain((int)msg->thumb_ip, 0, 180);
 }
 
 void stepServo(uint8_t channel, int &current, int target, int step){
@@ -126,6 +128,8 @@ void stepServo(uint8_t channel, int &current, int target, int step){
 void connectWiFi(){
 #ifdef NR_WIFI
     Serial.print("Connecting to WiFi: ");
+#elif defined(USE_HOTSPOT)
+    Serial.print("Connecting to WiFi: ");
 #else
     Serial.print("Connecting to enterprise WiFi: ");
 #endif
@@ -137,12 +141,15 @@ void connectWiFi(){
 #ifdef NR_WIFI
     // Plain WPA2-PSK, no EAP setup needed
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+#elif defined(USE_HOTSPOT)
+    // Plain WPA2-PSK, no EAP setup needed
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 #else
     // PEAP / MSCHAPv2, no anonymous indentity, no CA cert
-    esp_eap_client_set_identity((uint8_t *)EAP_IDENTITY, strlen(EAP_IDENTITY));
-    esp_eap_client_set_username((uint8_t *)EAP_USERNAME, strlen(EAP_USERNAME));
-    esp_eap_client_set_password((uint8_t *)EAP_PASSWORD, strlen(EAP_PASSWORD));
-    esp_wifi_sta_enterprise_enable();
+    esp_wifi_sta_wpa2_ent_set_identity((uint8_t *)EAP_IDENTITY, strlen(EAP_IDENTITY));
+    esp_wifi_sta_wpa2_ent_set_username((uint8_t *)EAP_USERNAME, strlen(EAP_USERNAME));
+    esp_wifi_sta_wpa2_ent_set_password((uint8_t *)EAP_PASSWORD, strlen(EAP_PASSWORD));
+    esp_wifi_sta_wpa2_ent_enable();
 
     WiFi.begin(WIFI_SSID);
 #endif

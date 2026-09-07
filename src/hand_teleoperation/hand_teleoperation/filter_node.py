@@ -48,16 +48,17 @@ This is NOT MediaPipe's numbering - the Quest has an extra metacarpal joint per
 finger that MediaPipe doesn't measure, which is why mediapipe_node keeps its own
 table instead of sharing this one.
 
-Only the MCP joints are listed, because that's all HandAngles.msg carries - one
-angle per finger, no pinky. The triple is (metacarpal, proximal, intermediate),
-so the angle sits at the knuckle, the same joint mediapipe_node measures with
-its wrist-based (0, mcp, pip) triple.
+Only one joint per finger is listed, because that's all HandAngles.msg carries -
+no pinky. For the fingers the triple is (metacarpal, proximal, intermediate), so
+the angle sits at the knuckle, the same joint mediapipe_node measures with its
+wrist-based (0, mcp, pip) triple. The thumb uses (proximal, distal, tip) so the
+angle sits at the IP joint instead, matching mediapipe_node's thumb_ip.
 '''
 QUEST_JOINTS = {
     "index_mcp": (5, 6, 7),
     "middle_mcp": (10, 11, 12),
     "ring_mcp": (15, 16, 17),
-    "thumb_mcp": (1, 2, 3),
+    "thumb_ip": (2, 3, 4),
 }
 
 qos_profile = QoSProfile(
