@@ -1,3 +1,5 @@
+// This file finds the MAC Address of the ESP32
+
 #include <Arduino.h>
 #include <WiFi.h>
 

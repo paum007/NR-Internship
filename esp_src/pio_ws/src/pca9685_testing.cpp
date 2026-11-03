@@ -1,3 +1,5 @@
+// This file was used to test the PCA9685 servo board to get familiar with it
+
 #include <Wire.h>
 
 // Include Adafruit PCA9685 Servo Library
