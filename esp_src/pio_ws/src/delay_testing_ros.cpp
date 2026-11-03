@@ -1,3 +1,5 @@
+// This file is to test for delay between the laptop and the ESP in the ROS2 framework
+
 #include <Arduino.h>
 
 // WiFi ---
