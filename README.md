@@ -97,6 +97,7 @@ src/                                  ROS 2 workspace packages (colcon)
       delay_calculations.py           Mean/median/min/max/std of the logged delays
     launch/node.launch.py             camera_ros + mediapipe_node + filter_node
     data/                             hand_landmarker.task model, delay CSV and results
+    test/test_nodes.py                Placeholder for node tests (currently empty)
   hand_teleoperation_interfaces/      CMake package defining HandAngles.msg
 esp_src/                              (COLCON_IGNORE, so colcon skips it)
   pio_ws/                             PlatformIO firmware workspace
@@ -111,9 +112,8 @@ esp_src/                              (COLCON_IGNORE, so colcon skips it)
 Documents/                            Application, research write-up, presentations, reflections
 Meeting notes/                        Supervision notes
 VUER_HAND_TOPICS.md                   Quest hand-tracking topics and message format
-research-notes.md                     References and Quest/vuer commands
-errors.md                             Log of errors hit and how they were solved
-to-do.md                              Running task list
+circuit_design.png                    ESP32, PCA9685 and servo wiring diagram
+LICENSE                               MIT licence
 ```
 
 ## Getting started
