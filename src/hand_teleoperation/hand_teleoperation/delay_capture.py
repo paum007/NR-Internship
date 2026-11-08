@@ -1,3 +1,6 @@
+# This file reads the delay measurements sent by the ESP over the serial port (/dev/ttyUSB0),
+# and logs every delay greater than 0 ms to delay_data.csv until stopped with Ctrl+C
+
 import serial
 import csv
 import time

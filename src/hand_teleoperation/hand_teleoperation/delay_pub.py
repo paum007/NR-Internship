@@ -1,3 +1,6 @@
+# This file is a ROS 2 node that publishes the current time in milliseconds on the 'chatter'
+# topic once per second, so the receiving side can work out the delay of each message
+
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String

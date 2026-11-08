@@ -1,3 +1,7 @@
+# This file is a ROS 2 node that takes hand angles from MediaPipe (/landmark_angles) and raw
+# hand landmarks from the Quest (left and right), smooths out small jitter, and publishes
+# the result as HandAngles on /hand_angles
+
 import rclpy
 import numpy as np
 from rclpy.node import Node

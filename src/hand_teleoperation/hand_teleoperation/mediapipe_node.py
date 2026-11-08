@@ -1,3 +1,7 @@
+# This file is a ROS 2 node that runs MediaPipe hand tracking on the camera feed (/camera/image_raw),
+# calculates the index, middle, ring and thumb joint angles, publishes them as HandAngles on
+# landmark_angles at 30 Hz, and shows the camera image with the hand landmarks drawn on it
+
 import os
 import cv2
 import time

@@ -1,3 +1,6 @@
+# This file reads the Micro-ROS delay data from delay_data.csv, calculates the average,
+# median, minimum, maximum and standard deviation, and writes them to processed_data.txt
+
 import pandas as pd
 import csv
 

@@ -1,3 +1,7 @@
+# This file is an older, unfinished version of the filter node (filter_node.py is the one in use).
+# The first half doesn't run as-is, and the "NEW VERSION" at the bottom is a draft that only
+# smooths HandAngles from a single source
+
 import os
 import rclpy
 import numpy as np
