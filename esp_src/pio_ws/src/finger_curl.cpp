@@ -1,3 +1,13 @@
+/*
+Testing a sweep of the servos. The servos here were connected in a finger-like fashion 
+(look at Pictures-and-videos: "Servos on top of each other finger arrangement.mp4" for a clearer representation):
+DIP Servo
+    |
+PIP Servo
+    |
+MCP Servo
+*/
+
 #include <Arduino.h>
 #include <ESP32Servo.h>
 
@@ -24,13 +34,6 @@ void sweepTo(Servo &servo, int from, int to, int stepDelay) {
         }
     }
 }
-
-// Make a function that returns the angle data from the computer vision and make it so that data goes into the sweepTo function
-// I might not even need this to process the angles if I already process the angle data and put it as a publisher, that angle can go into the sweepTo directly.
-
-// int angle(/*The camera vision stuff will go in here I assume or this will be the data collected from a publisher*/){
-
-// }
 
 void setup() {
     Serial.begin(115200);

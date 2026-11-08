@@ -1,3 +1,9 @@
+/* 
+MAIN FILE: this one is where the ESP32 connects to the wifi and gets the input angles from Mediapipe/ Metaquest 
+to then translate them into angles for the servos through the PCA9685 Servo Board.
+I would recommend using your personal hotspot or an easy access wifi without too much encryption since it will be less of a hassle
+*/
+
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
@@ -27,16 +33,16 @@
 // Network selection ----
 // Uncomment to join a phone hotspot (plain WPA2) instead of the enterprise network.
 // Comment it back out to go back to Modern_Networks.
-#define USE_HOTSPOT
-// #define NR_WIFI
+// #define USE_HOTSPOT
+#define NR_WIFI
 
 #ifdef NR_WIFI
 #define WIFI_SSID "National_Robotarium"
 #define WIFI_PASSWORD "NatRobotarium309"
 #elif defined(USE_HOTSPOT)
 // Personal hotspot credentials ----
-#define WIFI_SSID "pauma_hotspot"
-#define WIFI_PASSWORD "23esu08arsom0"
+#define WIFI_SSID "hotspot_name"
+#define WIFI_PASSWORD "hotpsot_password"
 #else
 // Enterprise WiFi credentials ----
 #define WIFI_SSID "Modern_Networks"
